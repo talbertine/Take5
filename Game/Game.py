@@ -12,7 +12,7 @@ class Game:
     HAND_SIZE = 10
     NUM_ROWS = 4
     ROW_SIZE = 5
-    TARGET_SCORE = 0#66
+    TARGET_SCORE = 66
 
     def __init__(self, playerCount, seed=None, log=None):
         """Take 5 Game constructor"""
