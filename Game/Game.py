@@ -91,6 +91,7 @@ class Game:
         random.setstate(extState)
 
     def getScoreList(self):
+        """Gets a list of the player's scores, in player order"""
         scoreList = []
         for player in self.players:
             scoreList.append((player.getName(), player.getScore()))
@@ -107,9 +108,12 @@ class Game:
                 scoreList = self.getScoreList()
 
                 actions = []
+                cardsPlayed = []
                 for player in self.players:
                     # save each player's action and keep it associated with them
-                    actions.append((player.playTurn(self.rows, scoreList), player, copy.copy(scoreList)))
+                    card = player.playTurn(self.rows, scoreList)
+                    actions.append((card, player, copy.copy(scoreList)))
+                    cardsPlayed.append(card)
                     # Cycle the score list so that the first entry is always the current player's 
                     scoreList.append(scoreList.pop(0))
 
@@ -124,7 +128,7 @@ class Game:
                     thisScoreList = actions[0][2]
                     self.appendLog("\n" + player.getName() + " played " + Game._formatCard(card))
 
-                    playedCards = map(lambda x: x[0], actions)
+                    playedCards = list(map(lambda x: x[0], actions))
                     rowToBreak = player.breakRow(self.rows,thisScoreList, card, playedCards)
                     self.appendLog("\n" + player.getName() + " chose row " + str(rowToBreak))
 
@@ -150,10 +154,23 @@ class Game:
                         for oldCard in oldRow:
                             self.appendLog("\n" + player.getName() + " scored " + Game._formatCard(oldCard))
                             player.addScore(Game._cardToPoints(oldCard))
-                self.appendLog("\nHand Ended")
+                self.appendLog("\nTurn Ended")
                 # A hand has ended
+                scoreList = self.getScoreList()
+                for player in self.players:
+                    # Notify each player of the results
+                    player.endTurn(cardsPlayed, scoreList)
+                    # Cycle the score list so that the first entry is always the current player's 
+                    cardsPlayed.append(cardsPlayed.pop(0))
+                    scoreList.append(scoreList.pop(0))
             self.appendLog("\nRound Ended")
             # a round has ended
+            scoreList = self.getScoreList()
+            for player in self.players:
+                # Notify each player of the results
+                player.endRound(scoreList)
+                # Cycle the score list so that the first entry is always the current player's 
+                scoreList.append(scoreList.pop(0))
             largestScore = max(map(lambda x: x.getScore(), self.players))
             if (largestScore > Game.TARGET_SCORE):
                 # Somebody hit the target score, so the game is over
@@ -229,7 +246,9 @@ class Player:
         self.setupCallback = None
         self.turnCallback = None
         self.breakCallback = None
+        self.endRoundCallback = None
         self.endGameCallback = None
+        self.endTurnCallback = None
 
     def setName(self, name : str):
         """Allows the player to set the name"""
@@ -322,3 +341,29 @@ class Player:
     def endGame(self, score):
         if not self.endGameCallback is None:
             self.endGameCallback(self.aiState, copy.deepcopy(score))
+
+    def setEndRoundCallback(self, callback):
+        """Sets an optional callback which will notify you when a round has ended. Useful if you're counting cards, for example.
+        Callback will receive:
+            The AI state object
+            and a list of tuples representing the player's name and score in that order, starting with the current player"""
+        
+        self.endRoundCallback = callback
+
+    def endRound(self, scores):
+        if not self.endRoundCallback is None:
+            self.endRoundCallback(self.aiState, copy.deepcopy(scores))
+
+    def setEndTurnCallback(self, callback):
+        """Sets an optional callback which will notify you when a hand has ended, and tell you what everyone ended up playing
+        Callback will receive:
+            The AI state object
+            a list of cards people played, starting with the current player
+            and a list of tuples representing the player's name and score in that order, starting with the current player"""
+        self.endTurnCallback = callback
+
+    def endTurn(self, playedCards, scoreList):
+        if not self.endTurnCallback is None:
+            self.endTurnCallback(self.aiState, copy.copy(playedCards), copy.deepcopy(scoreList))
+
+
