@@ -1,0 +1,100 @@
+
+Game Begun
+Round Begun
+Initial Rows:
+	57(1)
+	59(1)
+	102(1)
+	56(1)
+Player Starting Hands:
+Thomas: 4(1), 6(1), 13(1), 14(1), 29(1), 62(1), 63(1), 66(5), 72(1), 103(1)
+Player 1: 3(1), 12(1), 21(1), 36(1), 64(1), 65(2), 77(5), 87(1), 90(3), 92(1)
+Player 2: 7(1), 17(1), 35(2), 40(3), 44(5), 46(1), 48(1), 73(1), 80(3), 101(1)
+Hand Begun
+Player 1 played 21(1)
+Player 1 chose row 2
+Player 1 scored 102(1)
+Player 2 played 46(1)
+Thomas played 62(1)
+Hand Ended
+Hand Begun
+Thomas played 63(1)
+Player 1 played 64(1)
+Player 2 played 80(3)
+Hand Ended
+Hand Begun
+Player 1 played 3(1)
+Player 1 chose row 3
+Player 1 scored 56(1)
+Player 2 played 40(3)
+Thomas played 66(5)
+Hand Ended
+Hand Begun
+Player 2 played 7(1)
+Player 2 chose row 3
+Player 2 scored 3(1)
+Player 2 scored 40(3)
+Thomas played 72(1)
+Player 1 played 77(5)
+Hand Ended
+Hand Begun
+Thomas played 4(1)
+Thomas chose row 3
+Thomas scored 7(1)
+Player 2 played 48(1)
+Player 1 played 90(3)
+Player 1 scored 59(1)
+Player 1 scored 62(1)
+Player 1 scored 63(1)
+Player 1 scored 64(1)
+Player 1 scored 80(3)
+Hand Ended
+Hand Begun
+Thomas played 6(1)
+Player 1 played 12(1)
+Player 2 played 17(1)
+Hand Ended
+Hand Begun
+Player 2 played 44(5)
+Player 1 played 87(1)
+Thomas played 103(1)
+Hand Ended
+Hand Begun
+Thomas played 13(1)
+Thomas chose row 2
+Thomas scored 21(1)
+Thomas scored 46(1)
+Thomas scored 48(1)
+Player 1 played 36(1)
+Player 2 played 101(1)
+Player 2 scored 57(1)
+Player 2 scored 66(5)
+Player 2 scored 72(1)
+Player 2 scored 77(5)
+Player 2 scored 87(1)
+Hand Ended
+Hand Begun
+Thomas played 14(1)
+Thomas chose row 0
+Thomas scored 101(1)
+Player 2 played 35(2)
+Player 1 played 92(1)
+Player 1 scored 4(1)
+Player 1 scored 6(1)
+Player 1 scored 12(1)
+Player 1 scored 17(1)
+Player 1 scored 44(5)
+Hand Ended
+Hand Begun
+Thomas played 29(1)
+Thomas chose row 3
+Thomas scored 92(1)
+Player 1 played 65(2)
+Player 2 played 73(1)
+Hand Ended
+Round Ended
+Game Ended
+Final Scores:
+Thomas: 6
+Player 1: 18
+Player 2: 17
