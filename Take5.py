@@ -13,7 +13,7 @@ import sys
 import importlib
 import pathlib
 
-FLAG_INTERACTIVE = False
+FLAG_INTERACTIVE = True
 
 class MissingHookException(Exception):
     def __init__(self, hookName):
