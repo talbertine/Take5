@@ -186,6 +186,7 @@ class Game:
         self.appendLog("\nFinal Scores:")
         for name, score in self.getScoreList():
             self.appendLog("\n" + name + ": " + str(score))
+        return scoreList
 
     def placeCard(self, card):
         """Places the card in it's appropriate row. Returns the row that broke, if any"""

@@ -26,6 +26,9 @@
     <Compile Include="AIs\purelyRandom.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="AIs\ThomasBot.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="AIs\userInput.py">
       <SubType>Code</SubType>
     </Compile>

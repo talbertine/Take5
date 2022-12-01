@@ -22,11 +22,7 @@ from Game.Game import Game
 #   The player AI object, or None if no such object was created
 #   A list of the players scores in player order formatted as a tuple (name, score) starting with the current player
 
-def PostGame(_, scoreList : list[tuple[str, int]]):
-    scoreList.sort(key=lambda x: x[1])
-    print(Fore.YELLOW + "\nFinal Ranking: " + Style.RESET_ALL)
-    for i, score in enumerate(scoreList):
-        print(str(i + 1) + "\t" + str(score[1]) + "\t" + score[0])
+# Not needed
 
 # PostRound()
 #   Used notify that a round is over, and that the cards will be reshuffled and dealt out again. Useful if you're trying to count cards. Optional.
