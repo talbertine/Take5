@@ -13,6 +13,8 @@ import sys
 import importlib
 import pathlib
 
+FLAG_INTERACTIVE = False
+
 class MissingHookException(Exception):
     def __init__(self, hookName):
         super().__init__("Missing Hook \"" + hookName + "\"")
@@ -127,24 +129,59 @@ for aiModule in filter(lambda x: x.stem != "__init__", path.glob("*.py")):
     #   hole, but it's a toy project, so I'm not going to worry about it
     ais.append(AiModuleWrapper(aiModule))
 
-playerCount = utils.intInput("How many players would you like? ", 2, 10)
 
-game = Game(playerCount)
-players = game.getPlayers()
-for i,player in enumerate(players):
-    player.setName(input("What would you like to name player " + str(i) + "? "))
-    ai = None
-    while ai is None:
-        aiChoice = utils.choiceInput(list(map(lambda x: x.getName(), ais)), "Which AI module would you like to use for " + player.name + "? ") # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
-        try: 
-            ai = ais[aiChoice]
-            ai.attachToPlayer(player)
-        except Exception as e:
-            player.resetCallbacks()
-            print("Sorry, that AI module failed to initialize")
-            traceback.print_exc(file=sys.stdout)
-            print()
-            ai = None
+if FLAG_INTERACTIVE:
+    playerCount = utils.intInput("How many players would you like? ", 2, 10)
 
-game.playGame()
+    game = Game(playerCount)
+    players = game.getPlayers()
+    for i,player in enumerate(players):
+        player.setName(input("What would you like to name player " + str(i) + "? "))
+        ai = None
+        while ai is None:
+            aiChoice = utils.choiceInput(list(map(lambda x: x.getName(), ais)), "Which AI module would you like to use for " + player.name + "? ") # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
+            try: 
+                ai = ais[aiChoice]
+                ai.attachToPlayer(player)
+            except Exception as e:
+                player.resetCallbacks()
+                print("Sorry, that AI module failed to initialize")
+                traceback.print_exc(file=sys.stdout)
+                print()
+                ai = None
+
+    scoreList = game.playGame()
+    scoreList.sort(key=lambda x: x[1])
+    print("\nFinal Ranking: ")
+    for i, score in enumerate(scoreList):
+        print(str(i + 1) + "\t" + str(score[1]) + "\t" + score[0])
+else:
+    # If you want to do a statistically relevant number of tests, you can stick that code here
+    sample_size = 100
+    results = dict()
+    for playerCount in range(2, 10 + 1):
+        print("Testing " + str(playerCount) + " Players")
+        gameResults = dict()
+        for iteration in range(sample_size):
+            game = Game(playerCount)
+            players = game.getPlayers()
+            for i, player in enumerate(players):
+                if i == 0:
+                    player.setName("ThomasBot")
+                    ais[1].attachToPlayer(player)
+                else:
+                    player.setName("Random" + str(i))
+                    ais[0].attachToPlayer(player)
+            scoreList = game.playGame()
+            for result in scoreList:
+                if (not result[0] in gameResults):
+                    gameResults[result[0]] = 0
+                gameResults[result[0]] += result[1]
+        for key in gameResults.keys():
+            gameResults[key] /= sample_size
+        results[playerCount] = gameResults
+    for playerCount, result in results.items():
+        print("Players: " + str(playerCount))
+        for name, aveScore in result.items():
+            print(name + ": " + str(aveScore))
 
