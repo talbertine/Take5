@@ -1,3 +1,6 @@
+# Fixes the type hinting for 'list[int]'.
+from __future__ import annotations
+
 # Game.py
 # Runs a game of Take 5
 # By Thomas Albertine
@@ -5,6 +8,8 @@
 import random
 import copy
 from typing import Callable
+
+
 
 class Game:
     """Represents a single game of Take 5"""
@@ -186,7 +191,7 @@ class Game:
         self.appendLog("\nFinal Scores:")
         for name, score in self.getScoreList():
             self.appendLog("\n" + name + ": " + str(score))
-        return scoreList
+        return self.getScoreList()
 
     def placeCard(self, card):
         """Places the card in it's appropriate row. Returns the row that broke, if any"""
