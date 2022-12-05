@@ -180,8 +180,6 @@ if args.autobattle_AI is None and not args.interactive:
     aiChoice = utils.choiceInput(list(ais.keys())[:-1], "Which AI module would you like to use for the autobattle AI:")
     args.autobattle_AI = list(ais.keys())[aiChoice]
 
-intMapAIs = {i:k for i,k in zip(range(len(ais)), ais.keys())}
-
 if args.interactive:
     playerCount = utils.intInput("How many players would you like? ", 2, 10)
 
@@ -211,6 +209,7 @@ else:
     number_tables = args.autobattle_NumberOfTables
     sample_size_per_table = args.autobattle_Rounds
     ais = {k:v for k,v in ais.items() if k != "userInput"}
+    intMapAIs = {i:k for i,k in zip(range(len(ais)), ais.keys())}
     results = {i: [0, 0] for i in ais.keys()}
     tested_ai_results = [0,0]
     random.seed()
