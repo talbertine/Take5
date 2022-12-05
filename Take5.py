@@ -210,7 +210,8 @@ if args.interactive:
 else:
     number_tables = args.autobattle_NumberOfTables
     sample_size_per_table = args.autobattle_Rounds
-    results = {i: [0, 0] for i in ais.keys() if i != "userInput"}
+    ais = {k:v for k,v in ais.items() if k != "userInput"}
+    results = {i: [0, 0] for i in ais.keys()}
     tested_ai_results = [0,0]
     random.seed()
     for table in (pbar := crange(number_tables)):
@@ -219,7 +220,7 @@ else:
             pbar.set_description(f"Table {table+1} ({number_players} players)")
         else:
             print(f"Table {table+1}/{number_tables} with {number_players} players.")
-        player_ai_ids = [args.autobattle_AI, *[random.randint(0, len(intMapAIs)-2) for i in range(1, number_players)]]
+        player_ai_ids = [args.autobattle_AI, *[random.randint(0, len(intMapAIs)-1) for i in range(1, number_players)]]
         gameResults = dict()
         for iteration in range(sample_size_per_table):
             game = Game(number_players)
@@ -235,7 +236,7 @@ else:
             for name, score in scoreList:
                 gameResults[name] = gameResults.get(name, 0) + score
         tested_ai_results = [tested_ai_results[0] + gameResults[args.autobattle_AI], tested_ai_results[1] + sample_size_per_table]
-        best_results = {i: [0, 0] for i in ais.keys() if i != "userInput"}
+        best_results = {i: [0, 0] for i in ais.keys()}
         for tk in gameResults.keys():
             if tk != args.autobattle_AI:
                 k = tk.split("_")[1] 
