@@ -7,9 +7,6 @@ from __future__ import annotations
 
 import random
 import copy
-from typing import Callable
-
-
 
 class Game:
     """Represents a single game of Take 5"""
