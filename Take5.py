@@ -2,18 +2,18 @@
 # A quick text based interface for my Take 5 game module
 # By Thomas Albertine
 
-
 from Game.Game import Game
 from Game.Game import Player
 import utils
 import traceback
 
 import sys
-
+import random
 import importlib
 import pathlib
 
-FLAG_INTERACTIVE = True
+import argparse
+import AIs
 
 class MissingHookException(Exception):
     def __init__(self, hookName):
@@ -119,18 +119,68 @@ class AiModuleWrapper:
     def getName(self):
         return self.aiName
 
-import AIs
+
 path = pathlib.Path("AIs")
-ais = []
+ais = {}
 for aiModule in filter(lambda x: x.stem != "__init__", path.glob("*.py")):
     # Try to treat everything in the AIs folder as something that could 
     #   potentially be an AI module, except the __init__ of course
     # Yeah, executing strange code outside a sandbox is a massive security 
     #   hole, but it's a toy project, so I'm not going to worry about it
-    ais.append(AiModuleWrapper(aiModule))
+    tmp_module = AiModuleWrapper(aiModule)
+    ais[tmp_module.getName()] = tmp_module
+
+parser = argparse.ArgumentParser()      
+parser.add_argument("-v", "--verbose", help="enables additional print statements", action="store_true")      
+
+group = parser.add_mutually_exclusive_group()
+
+group.add_argument("--interactive", help="interactively build/play one table of Take5",
+                    action="store_true")
+group.add_argument("--autobattle-AI", help="chooses the AI to automatically battle against the other AIs", choices=[i for i in ais.keys() if i != "userInput"])
+parser.add_argument("-n", "--autobattle-NumberOfTables", help="set the number of tables (random-unique configurations of AIs) for the autobattle", type=int, default=50)
+parser.add_argument("-r", "--autobattle-Rounds", help="set the number of rounds each table will play", type=int, default=100)
+parser.add_argument("-mp", "--autobattle-MaxPlayers", help="set the maximum number of players at each table", type=int, default=10)
+parser.add_argument("-np", "--autobattle-MinPlayers", help="set the minimum number of players at each table", type=int, default=2)
+args = parser.parse_args()
+
+assert args.autobattle_AI in [None, *ais.keys()]
+
+# See if TQDM is installed.
+try:
+    from tqdm.auto import trange
+    from tqdm.auto import tqdm
+    TQDM_FOUND = True
+except:
+    print("TQDM is not installed. Run `pip install tqdm` for a fancy progress bar. Continuing...")
+    TQDM_FOUND = False
+
+# Returns an iterator that, if TQDM is installed, will also spawn a progress bar.
+def crange(leng):
+    if TQDM_FOUND:
+        return trange(leng, unit=" tables")
+    else:
+        return range(leng)
+
+# Prints to the console, but if using TQDM will use their write function.
+def rprint(*cargs, **kvargs):
+    if TQDM_FOUND:
+        tqdm.write(str(*cargs), **kvargs)
+    else:
+        print(*cargs, **kvargs)
+
+# Verbose print, only runs if verbose is set.
+def vprint(*cargs, **kvargs):
+    if args.verbose:
+        rprint(*cargs, **kvargs)
 
 
-if FLAG_INTERACTIVE:
+if args.autobattle_AI is None and not args.interactive:
+    # We will fix that.
+    aiChoice = utils.choiceInput(list(ais.keys())[:-1], "Which AI module would you like to use for the autobattle AI:")
+    args.autobattle_AI = list(ais.keys())[aiChoice]
+
+if args.interactive:
     playerCount = utils.intInput("How many players would you like? ", 2, 10)
 
     game = Game(playerCount)
@@ -139,7 +189,7 @@ if FLAG_INTERACTIVE:
         player.setName(input("What would you like to name player " + str(i) + "? "))
         ai = None
         while ai is None:
-            aiChoice = utils.choiceInput(list(map(lambda x: x.getName(), ais)), "Which AI module would you like to use for " + player.name + "? ") # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
+            aiChoice = utils.choiceInput(list(ais.keys()), "Which AI module would you like to use for " + player.name + "? ") # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
             try: 
                 ai = ais[aiChoice]
                 ai.attachToPlayer(player)
@@ -156,32 +206,48 @@ if FLAG_INTERACTIVE:
     for i, score in enumerate(scoreList):
         print(str(i + 1) + "\t" + str(score[1]) + "\t" + score[0])
 else:
-    # If you want to do a statistically relevant number of tests, you can stick that code here
-    sample_size = 100
-    results = dict()
-    for playerCount in range(2, 10 + 1):
-        print("Testing " + str(playerCount) + " Players")
+    number_tables = args.autobattle_NumberOfTables
+    sample_size_per_table = args.autobattle_Rounds
+    ais = {k:v for k,v in ais.items() if k != "userInput"}
+    intMapAIs = {i:k for i,k in zip(range(len(ais)), ais.keys())}
+    results = {i: [0, 0] for i in ais.keys()}
+    tested_ai_results = [0,0]
+    random.seed()
+    for table in (pbar := crange(number_tables)):
+        number_players = random.randint(args.autobattle_MinPlayers, args.autobattle_MaxPlayers)
+        if TQDM_FOUND:
+            pbar.set_description(f"Table {table+1} ({number_players} players)")
+        else:
+            print(f"Table {table+1}/{number_tables} with {number_players} players.")
+        player_ai_ids = [args.autobattle_AI, *[random.randint(0, len(intMapAIs)-1) for i in range(1, number_players)]]
         gameResults = dict()
-        for iteration in range(sample_size):
-            game = Game(playerCount)
+        for iteration in range(sample_size_per_table):
+            game = Game(number_players)
             players = game.getPlayers()
             for i, player in enumerate(players):
                 if i == 0:
-                    player.setName("ThomasBot")
-                    ais[1].attachToPlayer(player)
+                    player.setName(args.autobattle_AI)
+                    ais[args.autobattle_AI].attachToPlayer(player)
                 else:
-                    player.setName("Random" + str(i))
-                    ais[0].attachToPlayer(player)
+                    player.setName(f"AI_{intMapAIs[player_ai_ids[i]]}_{i}")
+                    ais[intMapAIs[player_ai_ids[i]]].attachToPlayer(player)
             scoreList = game.playGame()
-            for result in scoreList:
-                if (not result[0] in gameResults):
-                    gameResults[result[0]] = 0
-                gameResults[result[0]] += result[1]
-        for key in gameResults.keys():
-            gameResults[key] /= sample_size
-        results[playerCount] = gameResults
-    for playerCount, result in results.items():
-        print("Players: " + str(playerCount))
-        for name, aveScore in result.items():
-            print(name + ": " + str(aveScore))
-
+            for name, score in scoreList:
+                gameResults[name] = gameResults.get(name, 0) + score
+        tested_ai_results = [tested_ai_results[0] + gameResults[args.autobattle_AI], tested_ai_results[1] + sample_size_per_table]
+        best_results = {i: [0, 0] for i in ais.keys()}
+        for tk in gameResults.keys():
+            if tk != args.autobattle_AI:
+                k = tk.split("_")[1] 
+                if best_results[k][1] != 0 and best_results[k][0] > gameResults[tk]:
+                    best_results[k] = [gameResults[tk], sample_size_per_table]
+                elif best_results[k][1] == 0:
+                    best_results[k] = [gameResults[tk], sample_size_per_table]
+        for k in best_results.keys():
+            results[k] = [results[k][0] + best_results[k][0], results[k][1] + best_results[k][1]]
+            vprint(f"{k}: {float(best_results[k][0])/sample_size_per_table:.5f}",end='\t')
+        vprint()
+    print("--End testing--")
+    print(f"Selected AI score average: {float(tested_ai_results[0])/tested_ai_results[1]:.5f} across {tested_ai_results[1]} games.")
+    for ai_name in results.keys():
+        print(f"{ai_name}:\t\tplayed {results[ai_name][1]} games, averaging {float(results[ai_name][0])/results[ai_name][1]:.5f}")

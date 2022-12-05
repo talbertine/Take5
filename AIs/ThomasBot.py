@@ -1,3 +1,6 @@
+# Fixes the type hinting for 'list[int]'.
+from __future__ import annotations
+
 # Thomas.py
 # An AI module that plays roughly the way I do. A little more naively, but better at counting cards
 # It would be fun to do a massive dynamic programming table, but that sounds like it might be painful for anyone running the program
