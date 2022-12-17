@@ -11,6 +11,9 @@ import sys
 import random
 import importlib
 import pathlib
+import itertools
+import copy
+import math
 
 import argparse
 import AIs
@@ -119,6 +122,24 @@ class AiModuleWrapper:
     def getName(self):
         return self.aiName
 
+def printRanking(results, title, isAscending, isPercentage=False):
+    results = copy.copy(results)
+    results.sort(reverse = not isAscending, key=lambda x: x[1])
+    print(title)
+    for name, score in results:
+        score = "%.2f" % score
+        if isPercentage:
+            score += "%"
+        print("\n\t" + score + "\t" + str(name))
+
+def normalize(data, toPercentages=False):
+    result = []
+    percentageMultiplier = 1
+    if toPercentages:
+        percentageMultiplier = 100
+    for k,v in data.items():
+        result.append((k, percentageMultiplier * float(v[0]) / v[1]))
+    return result
 
 path = pathlib.Path("AIs")
 ais = {}
@@ -138,6 +159,7 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument("--interactive", help="interactively build/play one table of Take5",
                     action="store_true")
 group.add_argument("--autobattle-AI", help="chooses the AI to automatically battle against the other AIs", choices=[i for i in ais.keys() if i != "userInput"])
+group.add_argument("--round-robin", help="Make all AIs play against each other with varying numbers of players. Use -r to specify how many games each combination should play.", action="store_true")
 parser.add_argument("-n", "--autobattle-NumberOfTables", help="set the number of tables (random-unique configurations of AIs) for the autobattle", type=int, default=50)
 parser.add_argument("-r", "--autobattle-Rounds", help="set the number of rounds each table will play", type=int, default=100)
 parser.add_argument("-mp", "--autobattle-MaxPlayers", help="set the maximum number of players at each table", type=int, default=10)
@@ -174,6 +196,56 @@ def vprint(*cargs, **kvargs):
     if args.verbose:
         rprint(*cargs, **kvargs)
 
+if args.round_robin:
+    random.seed()
+    # We can't play games with more players than we have AIs
+    ais = {k:v for k,v in ais.items() if k != "userInput"}
+    maxPlayerCount = min(len(ais), 10)
+    aveWinRate = dict()
+    aggAverageScore = dict()
+    for ai in ais.values():
+            # First is the relevant value, second is the number of games played, so that we can normalize between rounds
+            aveWinRate[ai.getName()] = 0
+            aggAverageScore[ai.getName()] = 0
+    numRounds = maxPlayerCount + 1 - 2
+    for playerCount in range(2, maxPlayerCount + 1):
+        print(str(playerCount) + " Players")
+        subsets = list(itertools.combinations(ais.values(), playerCount))
+        subsets *= args.autobattle_Rounds
+        roundWins = dict()
+        scores = dict()
+        for ai in ais.values():
+            # First is the relevant value, second is the number of games played, so that we can normalize between rounds
+            roundWins[ai.getName()] = (0,0)
+            scores[ai.getName()] = (0,0)
+        for i in crange(len(subsets)):
+            subset = subsets[i]
+            game = Game(playerCount)
+            players = game.getPlayers()
+            for i, player in enumerate(players):
+                player.setName(subset[i].getName())
+                subset[i].attachToPlayer(player)
+            scoreList = game.playGame()
+            scoreList.sort(key=lambda x: x[1])
+            for j, result in enumerate(scoreList):
+                name, score = result
+                if j == 0:
+                    roundWins[name] = (roundWins[name][0] + 1, roundWins[name][1])
+                roundWins[name] = (roundWins[name][0], roundWins[name][1] + 1)
+                scores[name] = (scores[name][0] + score, scores[name][1] + 1)
+        winRate = normalize(roundWins, True)
+        aveScores = normalize(scores)
+        printRanking(winRate, "\nWin Rate (" + str(playerCount) + " Players)", False, True)
+        printRanking(aveScores, "\nAverage Score (" + str(playerCount) + " Players)", True)
+        # since we know how many rounds there will be, we can divide the results in advance
+        for name, wins in winRate:
+            aveWinRate[name] += wins / numRounds
+        for name, aveScore in aveScores:
+            aggAverageScore[name] += aveScore / numRounds
+    printRanking(list(aveWinRate.items()), "\nWin Rate (Overall)", False, True)
+    printRanking(list(aggAverageScore.items()), "\nAverage Score (Overall)", True)
+    sys.exit(0)
+        
 
 if args.autobattle_AI is None and not args.interactive:
     # We will fix that.
@@ -189,7 +261,7 @@ if args.interactive:
         player.setName(input("What would you like to name player " + str(i) + "? "))
         ai = None
         while ai is None:
-            aiChoice = utils.choiceInput(list(ais.keys()), "Which AI module would you like to use for " + player.name + "? ") # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
+            aiChoice = list(ais.keys())[utils.choiceInput(list(ais.keys()), "Which AI module would you like to use for " + player.name + "? ")] # Bypass the getter so as not to give up an easter egg just yet. Hee hee hee!
             try: 
                 ai = ais[aiChoice]
                 ai.attachToPlayer(player)
