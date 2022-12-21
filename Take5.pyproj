@@ -14,7 +14,7 @@
     <IsWindowsApplication>False</IsWindowsApplication>
     <InterpreterId>Global|PythonCore|3.9</InterpreterId>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
-    <CommandLineArguments>--round-robin -r 100</CommandLineArguments>
+    <CommandLineArguments>--round-robin -r 10</CommandLineArguments>
     <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -26,7 +26,11 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="AIModuleWrapper.py" />
     <Compile Include="AIs\betterRandom.py" />
+    <Compile Include="AIs\DemocracyBot.py" />
+    <Compile Include="AIs\highestCard.py" />
+    <Compile Include="AIs\lowestCard.py" />
     <Compile Include="AIs\purelyRandom.py">
       <SubType>Code</SubType>
     </Compile>
