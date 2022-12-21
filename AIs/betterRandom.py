@@ -64,13 +64,9 @@ def PlayCard(ai, hand, rows, scores):
 #   A list of the players scores in player order formatted as a tuple (name, score) starting with the current player
 # Returns the index of the row the player has chosen
 def ChooseRow(ai, card, hand, rows, cardPlayed, scores):
-    rowScores = [sum([Game._cardToPoints(j) for j in i]) for i in rows]
+    rowScores = [Game.getTotalPoints(r) for r in rows]
     minRow = rowScores.index(min(rowScores))
     return minRow
-    #ai.restoreState()
-    #retval = random.randint(0, len(rows) - 1)
-    #ai.saveState()
-    #return retval
 
 class RandomAIState:
 
