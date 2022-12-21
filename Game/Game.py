@@ -137,7 +137,7 @@ class Game:
                     # Add those points to the player
                     for oldCard in self.rows[rowToBreak]:
                         self.appendLog("\n" + player.getName() + " scored " + Game._formatCard(oldCard))
-                        player.addScore(Game._cardToPoints(oldCard))
+                        player.addScore(Game.cardToPoints(oldCard))
 
                     # Restart the row
                     self.rows[rowToBreak] = [card]
@@ -155,7 +155,7 @@ class Game:
                         self.rows[result] = self.rows[result][Game.ROW_SIZE:]
                         for oldCard in oldRow:
                             self.appendLog("\n" + player.getName() + " scored " + Game._formatCard(oldCard))
-                            player.addScore(Game._cardToPoints(oldCard))
+                            player.addScore(Game.cardToPoints(oldCard))
                 self.appendLog("\nTurn Ended")
                 # A hand has ended
                 scoreList = self.getScoreList()
@@ -211,10 +211,11 @@ class Game:
     
     @classmethod
     def _formatCard(cls, card):
-        return str(card) + "(" + str(Game._cardToPoints(card)) + ")"
+        return str(card) + "(" + str(Game.cardToPoints(card)) + ")"
 
-    @classmethod
-    def _cardToPoints(cls, card):
+    @staticmethod
+    def cardToPoints(card):
+        """Get the points value for the given card"""
         score = 1
         if card % 5 == 0:
             # divisible by 5
@@ -228,6 +229,11 @@ class Game:
         if card == 55:
             score += 1
         return score
+
+    @staticmethod
+    def getTotalPoints(cards):
+        """Get the sum of points for the given cards"""
+        return sum([Game.cardToPoints(c) for c in cards])
         
     def getPlayers(self):
         """Returns a list of players

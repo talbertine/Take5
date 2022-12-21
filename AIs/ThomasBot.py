@@ -131,7 +131,7 @@ def ChooseRow(ai, card, hand, rows, cardPlayed, scores):
     cheapestIndex = -1
 
     for i, row in enumerate(rows):
-        cost = scoreRow(row)
+        cost = Game.Game.Game.getTotalPoints(row)
         if cost < cheapestCost:
             cheapestCost = cost
             cheapestIndex = i
@@ -185,12 +185,6 @@ def predictRow(rows, card):
             foundRow = i
     return foundRow
 
-def scoreRow(row):
-    pointTotal = 0
-    for card in row:
-        pointTotal += Game.Game.Game._cardToPoints(card)
-    return pointTotal
-
 def willItBreak(rows, card, numPlayers):
     dest = predictRow(rows, card)
     slots = Game.Game.Game.ROW_SIZE - len(rows[dest])
@@ -217,7 +211,7 @@ def sowChaos(rows, lowCards, numPlayers):
     cheapestIndices = {}
 
     for i, row in enumerate(rows):
-        cost = scoreRow(row)
+        cost = Game.Game.Game.getTotalPoints(row)
         if cost < cheapestCost:
             cheapestCost = cost
             cheapestIndices = {i}
