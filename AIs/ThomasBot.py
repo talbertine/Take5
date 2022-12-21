@@ -1,7 +1,7 @@
 # Fixes the type hinting for 'list[int]'.
 from __future__ import annotations
 
-# Thomas.py
+# ThomasBot.py
 # An AI module that plays roughly the way I do. A little more naively, but better at counting cards
 # It would be fun to do a massive dynamic programming table, but that sounds like it might be painful for anyone running the program
 # By Thomas Albertine
@@ -188,7 +188,7 @@ def predictRow(rows, card):
 def scoreRow(row):
     pointTotal = 0
     for card in row:
-        pointTotal = Game.Game.Game._cardToPoints(card)
+        pointTotal += Game.Game.Game._cardToPoints(card)
     return pointTotal
 
 def willItBreak(rows, card, numPlayers):
