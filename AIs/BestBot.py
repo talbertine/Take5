@@ -91,7 +91,14 @@ class BestBotState:
         
         # Cards are in ascending order
         weights = [self._weighCard(c, row_infos) for c in hand]
-        min_weight = min(weights)
+
+        # Choose a safe weight, but not too safe, if possible
+        safe_weights = [x for x in weights if x < 1.0 and x > 0]
+        if len(safe_weights) > 0:
+            min_weight = max(safe_weights)
+        else:
+            min_weight = min(weights)
+
         min_cards = []
 
         for i in range(len(weights)):
@@ -132,7 +139,7 @@ class BestBotState:
         """Give the expected points of playing this card to this row"""
         if row.slots_left >= self.player_count:
             # No chance of it breaking (unless there is fuckery).
-            break_chance = 0.0
+            break_chance = -1
         else:
             # How likely is this row to break?
 
