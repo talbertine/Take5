@@ -13,14 +13,14 @@ class CardCounter:
         self.player_count = playerCount
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset to inital state"""
         # Initialize the card-counting buckets.
         # We assume that each player will have a somewhat evenly distributed hand
         self.buckets = [self.player_count] * CardCounter.NUM_BUCKETS
         self.cards_remaining = list(range(1, Game.NUM_CARDS + 1))
 
-    def countCard(self, card: int):
+    def countCard(self, card: int) -> None:
         """Count the given card"""
 
         try:
@@ -30,9 +30,12 @@ class CardCounter:
         except ValueError:
             pass # Already counted
 
-    def getCardsInRange(self, first: int, last: int):
+    def getCardsInRange(self, first: int, last: int) -> list[int]:
         """Get the number of cards left in the given range (inclusive)"""
-        return len([x for x in self.cards_remaining if x >= first and x <= last])
+        return [x for x in self.cards_remaining if x >= first and x <= last]
+
+    def getNumberOfCardsRemaining(self) -> int:
+        return len(self.cards_remaining)
 
     @staticmethod
     def _getBucket(card: int):
@@ -46,12 +49,11 @@ class RowInfo:
         self.count = len(row)
         self.slots_left = Game.ROW_SIZE - self.count
         self.max_value = Game.NUM_CARDS
-        self.possible_count = counter.getCardsInRange(self.value, self.max_value)
+        self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
 
     def setNextRow(self, other, counter: CardCounter):
         self.max_value = other.value - 1
-        self.possible_count = counter.getCardsInRange(self.value, self.max_value)
-
+        self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
 class BestBotState:
     def __init__(self, playerCount: int):
         self.player_count = playerCount
@@ -60,19 +62,17 @@ class BestBotState:
         
     def reset(self):
         """Reset to inital state"""
-        self.round_started = False
+        self.turns_left = 0 # start at zero
         self.card_counter.reset()
 
     def prepareTurn(self, hand: list[int], rows: list[list[int]]):
-        if self.round_started:
-            self.cards_remaining = len(hand)
-        else:
+        if self.turns_left == 0:
             # Start the round
             self.countCards(hand)
             for r in rows:
                 self.countCards(r)
-            self.cards_remaining = Game.HAND_SIZE
-            self.round_started = True
+
+        self.turns_left = len(hand)
 
 
     def countCards(self, cards: list[int]):
@@ -107,10 +107,10 @@ class BestBotState:
 
         if len(min_cards) > 1:
             # Multiple cards with same weight.
-            # For now, choose the highest one
+            # For now, choose the lowest one, since those are harder to play
             # TODO: better tiebreaker here.
             # Ideas: hardest card to play, cards closest to other cards, etc
-            return min_cards[-1]
+            return min_cards[0]
         else:
             # Return only card
             return min_cards[0]
@@ -139,18 +139,33 @@ class BestBotState:
         """Give the expected points of playing this card to this row"""
         if row.slots_left >= self.player_count:
             # No chance of it breaking (unless there is fuckery).
-            break_chance = -1
+            return 0.0
         else:
             # How likely is this row to break?
-
             # How many cards are between this row and our card?
-            remaining = self.card_counter.getCardsInRange(row.value, card - 1)
+            possible_cards = self.card_counter.getCardsInRange(row.value, card)
 
-            # Normalize the weight by number of remaining cards in the round
-            norm = self.cards_remaining / Game.HAND_SIZE
-            break_chance = remaining * norm / self.player_count
-        
-        return break_chance * row.points
+            if len(possible_cards) < row.slots_left or len(possible_cards) == 0:
+                # Short-circuit - no possible cards!
+                return 0.0
+
+            # How many points would this row be worth?
+            avg_possible_pts = Game.getTotalPoints(possible_cards) / len(possible_cards)
+            est_pts_left = avg_possible_pts * row.slots_left
+
+            # This is an attempt to estimate how likely a player would play
+            # one of the remaining cards.
+            total_cards_remaining = self.card_counter.getNumberOfCardsRemaining()
+
+            # TODO: this is assuming all players are playing randomly...
+            # Probably not correct. Need to take into account other rows, etc.
+            break_chance = 1.0
+
+            for i in range(row.slots_left):
+                chance_card_is_played = (len(possible_cards) - i) / (total_cards_remaining - i)
+                break_chance = break_chance * chance_card_is_played
+
+            return break_chance * (row.points + est_pts_left)
 
     def _weighCardForBreak(self, card: int, rows: list[RowInfo]):
         """Give the expected points of this card for breaking (taking a row)"""
