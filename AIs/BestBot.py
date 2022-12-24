@@ -54,6 +54,7 @@ class RowInfo:
     def setNextRow(self, other, counter: CardCounter):
         self.max_value = other.value - 1
         self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
+
 class BestBotState:
     def __init__(self, playerCount: int):
         self.player_count = playerCount
@@ -93,7 +94,7 @@ class BestBotState:
         weights = [self._weighCard(c, row_infos) for c in hand]
 
         # Choose a safe weight, but not too safe, if possible
-        safe_weights = [x for x in weights if x < 1.0 and x > 0]
+        safe_weights = [x for x in weights if x < 0.5 and x > 0]
         if len(safe_weights) > 0:
             min_weight = max(safe_weights)
         else:
@@ -129,7 +130,7 @@ class BestBotState:
         # it resolves to our card
         if played_row is not None:
             # This card would likely resolve to this row.
-            # Calculate how likely we are to get points here.
+            # Calculate the expected points
             return self._weighCardForRow(card, played_row)
         else:
             # Card would not resolve to any row.
@@ -169,10 +170,18 @@ class BestBotState:
 
     def _weighCardForBreak(self, card: int, rows: list[RowInfo]):
         """Give the expected points of this card for breaking (taking a row)"""
+        cards_below_this = len(self.card_counter.getCardsInRange(1, card))
+        cards_remaining = self.card_counter.getNumberOfCardsRemaining()
+
+        # Ratio of remaining cards below our card
+        ratio_below_this = cards_below_this / cards_remaining
+
         # For now, we naively assume we will just take the min row.
-        # TODO: improve this here by deciding how difficult this card
-        # is to play (lower cards are harder to play)
-        return min([r.points for r in rows])
+        min_row_score = min([r.points for r in rows])
+
+        # If there are more cards below ours, then this card is less likely to break
+        break_chance = (1.0 - ratio_below_this)
+        return break_chance * min_row_score
 
 # Setup()
 #   Used to initialize an AI state required later.
