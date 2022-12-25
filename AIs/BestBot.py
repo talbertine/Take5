@@ -1,8 +1,17 @@
 # BestBot.py
 # An AI module that is simply the best
 # By Tyler Howe
-import random
+import copy
 from Game.Game import Game
+import numpy
+
+def createTiers(data: list[int|float], delta: int|float) -> list[list[int|float]]:
+    """Create tiers using the delta to sort based on deltas between data pts"""
+
+    deltas = numpy.diff(data)
+
+    return deltas
+
 
 class CardCounter:
     """Helper class for counting cards"""
@@ -43,17 +52,89 @@ class CardCounter:
 
 class RowInfo:
     """Helper class to characterize a row"""
-    def __init__(self, row: list[int], counter: CardCounter):
-        self.value = max(row)
-        self.points = Game.getTotalPoints(row)
-        self.count = len(row)
-        self.slots_left = Game.ROW_SIZE - self.count
-        self.max_value = Game.NUM_CARDS
-        self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
+    def __init__(self, *args):
+        """Create a new rowinfo object with either no args or a list of cards and a card_counter"""
+        arg_len = len(args)
+        assert arg_len == 0 or arg_len == 2, "Invalid arg length for rowinfo"
 
-    def setNextRow(self, other, counter: CardCounter):
+        if len(args) > 0:
+            row = args[0]
+            counter = args[1]
+
+            self.value = max(row)
+            self.points = Game.getTotalPoints(row)
+            self.count = len(row)
+            self.slots_left = Game.ROW_SIZE - self.count
+            self.max_value = Game.NUM_CARDS
+            self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
+        else:
+            self.value = 0
+            self.points = 0
+            self.count = 0
+            self.slots_left = 0
+            self.max_value = 0
+            self.possible_cards = []
+
+    def __copy__(self):
+        ret = RowInfo()
+        ret.value = self.value
+        ret.points = self.points
+        ret.count = self.count
+        ret.slots_left = self.slots_left
+        ret.max_value = self.max_value
+        ret.possible_cards = self.possible_cards
+
+    def linkToRow(self, other, counter: CardCounter):
         self.max_value = other.value - 1
         self.possible_cards = counter.getCardsInRange(self.value, self.max_value)
+
+    def resolveCard(self, card: int, force_break: bool) -> int:
+        """Resolve the given card to this row. Returns amount of points taken"""
+        self.value = card
+        card_pts = Game.cardToPoints(card)
+        
+        if self.slots_left == 0 or force_break:
+            # Broken
+            pts_taken = self.points
+            self.points = card_pts
+            self.count = 1
+            self.slots_left = Game.ROW_SIZE - self.count
+            return pts_taken
+        else:
+            # Not broken
+            self.points += card_pts
+            self.count += 1
+            self.slots_left -= 1
+            return 0
+
+    @staticmethod 
+    def UpdateRows(row_infos, card_counter: CardCounter):
+        sorted_rows = sorted(row_infos, key=lambda r: r.value)
+
+        for i in range(len(sorted_rows)-1):
+            row = sorted_rows[i]
+            next_row = sorted_rows[i + 1]
+            row.linkToRow(next_row, card_counter)
+
+        sorted_rows[-1].max_value = Game.NUM_CARDS
+
+    @staticmethod
+    def CreateFromRowList(rows: list[list[int]], card_counter: CardCounter):        
+        row_infos = [RowInfo(r, card_counter) for r in rows]
+
+        RowInfo.UpdateRows(row_infos, card_counter)
+
+        return row_infos
+
+def ResolveRow(card: int, rows: list[RowInfo]) -> RowInfo:
+    """Find the row this card would resolve to. Returns None if it is too low"""
+
+    played_row = None
+    for r in rows:
+        if (card > r.value) and (card <= r.max_value):
+            played_row = r
+
+    return played_row
 
 class BestBotState:
     def __init__(self, playerCount: int):
@@ -83,12 +164,7 @@ class BestBotState:
     def playTurn(self, hand: list[int], rows: list[list[int]], scores: list[tuple[str, int]]):
         """PLay the turn and select the best card"""
 
-        row_infos = sorted([RowInfo(r, self.card_counter) for r in rows], key=lambda r: r.value)
-
-        for i in range(len(row_infos)-1):
-            row = row_infos[i]
-            next_row = row_infos[i + 1]
-            row.setNextRow(next_row, self.card_counter)
+        row_infos = RowInfo.CreateFromRowList(rows, self.card_counter)
         
         # Cards are in ascending order
         weights = [self._weighCard(c, row_infos) for c in hand]
@@ -121,10 +197,7 @@ class BestBotState:
         """Get the expected points for the given card. Lower is better"""
 
         # Find the row that this card would play to
-        played_row = None
-        for r in rows:
-            if (card > r.value) and (card <= r.max_value):
-                played_row = r
+        played_row = ResolveRow(card, rows)
 
         # TODO: calculate the chance that this row is taken before
         # it resolves to our card
@@ -183,6 +256,38 @@ class BestBotState:
         break_chance = (1.0 - ratio_below_this)
         return break_chance * min_row_score
 
+    def chooseRow(self, card: int, rows: list[list[int]], cardsPlayed: list[int]) -> int:
+        row_infos = RowInfo.CreateFromRowList(rows, self.card_counter)
+        cards_left = [c for c in cardsPlayed if c > card]
+
+        row_to_take = 0
+        row_rating = 0
+
+        for i in range(len(rows)):
+            # If we were to take this row, where would the other cards resolve?
+            hypothetical_rows = copy.deepcopy(row_infos)
+            cur_row = hypothetical_rows[i]
+            cur_pts_taken = cur_row.resolveCard(card, True)
+            cur_pts_given = 0            
+
+            RowInfo.UpdateRows(hypothetical_rows, self.card_counter)
+
+            for c in cards_left:
+                row = ResolveRow(c, hypothetical_rows)
+                cur_pts_given += row.resolveCard(c, False)
+                RowInfo.UpdateRows(hypothetical_rows, self.card_counter)
+
+            # Evaluate the rows based on amount of points given vs. taken.
+            # Add a little bit of fudge so we weight fewer points take as a higher number
+            cur_rating = (cur_pts_given + 0.001) / cur_pts_taken
+
+            if cur_rating > row_rating:
+                row_to_take = i
+                row_rating = cur_rating
+        
+        return row_to_take
+                
+
 # Setup()
 #   Used to initialize an AI state required later.
 # Takes arguments:
@@ -231,6 +336,7 @@ def PlayCard(ai: BestBotState, hand: list[int], rows: list[list[int]], scores: l
 #   A list of the players scores in player order formatted as a tuple (name, score) starting with the current player
 # Returns the index of the row the player has chosen
 def ChooseRow(ai, card: int, hand: list[int], rows: list[list[int]], cardsPlayed: list[int], scores: list[tuple[str, int]]):
-    rowScores = [Game.getTotalPoints(r) for r in rows]
-    minRow = rowScores.index(min(rowScores))
-    return minRow
+    ai.countCards(cardsPlayed)
+
+    # TODO: we could weigh scores here and be more vindictive if we were winning
+    return ai.chooseRow(card, rows, cardsPlayed)
