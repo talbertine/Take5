@@ -4,14 +4,7 @@
 import copy
 from Game.Game import Game
 import numpy
-
-def createTiers(data: list[int|float], delta: int|float) -> list[list[int|float]]:
-    """Create tiers using the delta to sort based on deltas between data pts"""
-
-    deltas = numpy.diff(data)
-
-    return deltas
-
+from enum import Enum
 
 class CardCounter:
     """Helper class for counting cards"""
@@ -24,9 +17,6 @@ class CardCounter:
 
     def reset(self) -> None:
         """Reset to inital state"""
-        # Initialize the card-counting buckets.
-        # We assume that each player will have a somewhat evenly distributed hand
-        self.buckets = [self.player_count] * CardCounter.NUM_BUCKETS
         self.cards_remaining = list(range(1, Game.NUM_CARDS + 1))
 
     def countCard(self, card: int) -> None:
@@ -34,8 +24,6 @@ class CardCounter:
 
         try:
             self.cards_remaining.remove(card)
-            bkt = CardCounter._getBucket(card)
-            self.buckets[bkt] -= 1
         except ValueError:
             pass # Already counted
 
@@ -45,11 +33,7 @@ class CardCounter:
 
     def getNumberOfCardsRemaining(self) -> int:
         return len(self.cards_remaining)
-
-    @staticmethod
-    def _getBucket(card: int):
-        return round((card - 1) * (CardCounter.NUM_BUCKETS - 1) / (Game.NUM_CARDS - 1))
-
+        
 class RowInfo:
     """Helper class to characterize a row"""
     def __init__(self, *args):
@@ -136,6 +120,11 @@ def ResolveRow(card: int, rows: list[RowInfo]) -> RowInfo:
 
     return played_row
 
+class Strategy(Enum):
+    SAFE = 1
+    NORMAL = 2
+    AGGRESSIVE = 3
+
 class BestBotState:
     def __init__(self, playerCount: int):
         self.player_count = playerCount
@@ -146,6 +135,10 @@ class BestBotState:
         """Reset to inital state"""
         self.turns_left = 0 # start at zero
         self.card_counter.reset()
+        self.min_score = 0
+        self.max_score = 0
+        self.our_score = 0
+        self.strategy = Strategy.NORMAL
 
     def prepareTurn(self, hand: list[int], rows: list[list[int]]):
         if self.turns_left == 0:
@@ -156,6 +149,14 @@ class BestBotState:
 
         self.turns_left = len(hand)
 
+        # Decide how safe or aggressive we can play
+        if (self.our_score > Game.TARGET_SCORE - 10):
+            self.strategy = Strategy.SAFE
+        elif (self.our_score == self.min_score) and (self.our_score < 20):
+            self.strategy = Strategy.AGGRESSIVE
+        else:
+            self.strategy = Strategy.NORMAL
+
 
     def countCards(self, cards: list[int]):
         for c in cards:
@@ -165,13 +166,14 @@ class BestBotState:
         """PLay the turn and select the best card"""
 
         row_infos = RowInfo.CreateFromRowList(rows, self.card_counter)
-        
+
         # Cards are in ascending order
         weights = [self._weighCard(c, row_infos) for c in hand]
 
         # Choose a safe weight, but not too safe, if possible
         safe_weights = [x for x in weights if x < 0.5 and x > 0]
-        if len(safe_weights) > 0:
+
+        if (len(safe_weights) > 0) and (self.strategy != Strategy.SAFE):
             min_weight = max(safe_weights)
         else:
             min_weight = min(weights)
@@ -211,13 +213,19 @@ class BestBotState:
 
     def _weighCardForRow(self, card: int, row: RowInfo):
         """Give the expected points of playing this card to this row"""
+        
+        # How many cards are between this row and our card?
+        possible_cards = self.card_counter.getCardsInRange(row.value, card)
+        
+        # This is an attempt to estimate how likely a player would play
+        # one of the remaining cards.
+        total_cards_remaining = self.card_counter.getNumberOfCardsRemaining()
+
         if row.slots_left >= self.player_count:
-            # No chance of it breaking (unless there is fuckery).
+            # No chance of it breaking if things go smoothly.
+            # As long as we are close to this card, we should be okay
             return 0.0
         else:
-            # How likely is this row to break?
-            # How many cards are between this row and our card?
-            possible_cards = self.card_counter.getCardsInRange(row.value, card)
 
             if len(possible_cards) < row.slots_left or len(possible_cards) == 0:
                 # Short-circuit - no possible cards!
@@ -227,9 +235,6 @@ class BestBotState:
             avg_possible_pts = Game.getTotalPoints(possible_cards) / len(possible_cards)
             est_pts_left = avg_possible_pts * row.slots_left
 
-            # This is an attempt to estimate how likely a player would play
-            # one of the remaining cards.
-            total_cards_remaining = self.card_counter.getNumberOfCardsRemaining()
 
             # TODO: this is assuming all players are playing randomly...
             # Probably not correct. Need to take into account other rows, etc.
@@ -278,7 +283,12 @@ class BestBotState:
                 RowInfo.UpdateRows(hypothetical_rows, self.card_counter)
 
             # Evaluate the rows based on amount of points given vs. taken.
-            # Add a little bit of fudge so we weight fewer points take as a higher number
+            # Add a little bit of fudge so we weight fewer points taken as a higher number
+
+            # In aggressive mode, weigh giving points more heavily
+            if (self.strategy == Strategy.AGGRESSIVE):
+                cur_pts_given = cur_pts_given * 1.25
+
             cur_rating = (cur_pts_given + 0.001) / cur_pts_taken
 
             if cur_rating > row_rating:
@@ -312,6 +322,9 @@ def PostRound(ai: BestBotState, scores: list[tuple[str, int]]):
 #   A list of the players scores in player order formatted as a tuple (name, score) starting with the current player
 def PostTurn(ai: BestBotState, playedCards: list[int], scores: list[tuple[str, int]]):
     ai.countCards(playedCards)
+    ai.min_score = min([s[1] for s in scores])
+    ai.max_score = max([s[1] for s in scores])
+    ai.our_score = scores[0][1]
 
 # PlayCard()
 #   Determines which card from the player's hand they should play
